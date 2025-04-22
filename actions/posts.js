@@ -1,50 +1,56 @@
-"use server"
+'use server';
 
 import { uploadImage } from '@/lib/cloudinary';
+import { updatePostLikeStatus } from '@/lib/posts';
 import { storePost } from '@/lib/posts';
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 export async function createPost(prevState, formData) {
-  "use server";
+	'use server';
 
-  // console.log("Form Data :", formData.getAll());
-  const title = formData.get('title');
-  const image = formData.get('image');
-  const content = formData.get('content');
+	// console.log("Form Data :", formData.getAll());
+	const title = formData.get('title');
+	const image = formData.get('image');
+	const content = formData.get('content');
 
-  let errors = [];
+	let errors = [];
 
-  if(!title && title.trim().length === 0){
-    errors.push("Title is required");
-  }
+	if (!title && title.trim().length === 0) {
+		errors.push('Title is required');
+	}
 
-  if(!content && content.trim().length === 0){
-    errors.push("content is required");
-  }
+	if (!content && content.trim().length === 0) {
+		errors.push('content is required');
+	}
 
-  if(!image || image.size === 0){
-    errors.push("Image is required");
-  }
+	if (!image || image.size === 0) {
+		errors.push('Image is required');
+	}
 
-  if(errors.length > 0){
-    return { errors };
-  }
+	if (errors.length > 0) {
+		return { errors };
+	}
 
+	let imageUrl;
+	try {
+		imageUrl = await uploadImage(image);
+	} catch (error) {
+		console.log('Error uploading image', error);
+		throw new Error('Failed to upload image');
+	}
 
-  let imageUrl;
-  try {
-    imageUrl = await uploadImage(image)
-  } catch (error) {
-    console.log("Error uploading image", error);
-    throw new Error("Failed to upload image");
-  }
+	await storePost({
+		imageUrl: imageUrl,
+		title,
+		content,
+		userId: 1,
+	});
+	revalidatePath('/', 'layout');
+	redirect('/feed');
+}
 
-  await storePost({
-    imageUrl: imageUrl,
-    title,
-    content,
-    userId: 1
-  })
-
-  redirect("/feed")
+export async function togglePostLikeStatus(postId) {
+	updatePostLikeStatus(postId, 2);
+	revalidatePath('/', 'layout');
 }
